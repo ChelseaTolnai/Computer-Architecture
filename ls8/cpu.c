@@ -83,8 +83,8 @@ void cpu_run(struct cpu *cpu)
     }
 
     // 4. switch() over it to decide on a course of action.
-    // 5. Do whatever the instruction should do according to the spec.
     switch (IR) {
+      // 5. Do whatever the instruction should do according to the spec.
       case LDI:
         cpu_ram_write(cpu, operandA, operandB);
         break;
