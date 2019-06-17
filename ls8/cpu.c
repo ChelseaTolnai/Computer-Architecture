@@ -64,12 +64,25 @@ void cpu_run(struct cpu *cpu)
 void cpu_init(struct cpu *cpu)
 {
   // TODO: Initialize the PC and other special registers
+  // When the LS-8 is booted, the following steps occur:
+
+  // * `R0`-`R6` are cleared to `0`.
+  memset(cpu->reg, 0, 8*sizeof(unsigned char));
+
+  // * `R7` is set to `0xF4`.
+  cpu->reg[7] = 0xF4;
+
+  // * `PC` and `FL` registers are cleared to `0`.
+  cpu->pc = 0;
+  
+  // * RAM is cleared to `0`.
+  memset(cpu->ram, 0, 256*sizeof(unsigned char));
 }
 
 /**
  * Read RAM inside CPU struct at given index
  */
-char cpu_ram_read(struct cpu *cpu, unsigned int index)
+unsigned char cpu_ram_read(struct cpu *cpu, unsigned int index)
 {
   return cpu->ram[index];
 }
