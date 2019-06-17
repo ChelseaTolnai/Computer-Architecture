@@ -65,3 +65,19 @@ void cpu_init(struct cpu *cpu)
 {
   // TODO: Initialize the PC and other special registers
 }
+
+/**
+ * Read RAM inside CPU struct at given index
+ */
+char cpu_ram_read(struct cpu *cpu, unsigned int index)
+{
+  return cpu->ram[index];
+}
+
+/**
+ * Write a value to the RAM inside CPU struct at given index
+ */
+void cpu_ram_write(struct cpu *cpu, unsigned int index, unsigned char value)
+{
+  cpu->ram[index] = value;
+}
