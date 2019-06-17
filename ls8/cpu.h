@@ -3,10 +3,12 @@
 
 // Holds all information about the CPU
 struct cpu {
-  // TODO
   // PC
-  // registers (array)
-  // ram (array)
+  unsigned int pc;
+  // registers (array) -- R0->R7 (8 items)
+  unsigned char reg[8];
+  // ram (array) -- With 8 bits, our CPU has a total of 256 bytes of memory
+  unsigned char ram[256];
 };
 
 // ALU operations
