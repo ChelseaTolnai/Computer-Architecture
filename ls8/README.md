@@ -66,6 +66,20 @@ but you'll have to implement those three above instructions first!
 * Read this whole file.
 * Skim the spec.
 
+- `/ls8`
+  - cpu.c: CPU and ALU operation functions
+  - cpu.h: constructs CPU and ALU operations
+  - ls8.c: main file that the make file will run
+  - `/examples`
+    - call.ls8: list of binary instructions for calls
+    - interrupts.ls8: list of binary instructions for interrupts
+    - keyboard.ls8: list of binary instructions for keyboard
+    - mult.ls8: list of binary instructions for multiplying
+    - print8.ls8: list of binary instructions for printing number 8
+    - printstr.ls8: list of binary instructions for printing strings
+    - stack.ls8: list of binary instructions for stack operations
+    - stackoverflow.ls8: list of binary instructions for handling stack overflow
+
 ## Step 1: Implement `struct cpu` in `cpu.h`
 
 This structure holds information about the CPU and associated components.
