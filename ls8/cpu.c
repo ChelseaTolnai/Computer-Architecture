@@ -91,6 +91,9 @@ void cpu_run(struct cpu *cpu)
       case PRN:
         printf("%d\n", cpu_ram_read(cpu, operandA));
         break;
+      case HLT:
+        running = 0;
+        break;
       default:
         printf("Error - Instruction Register Unknown at register PC index {%d}\n", cpu->pc);
         running = 0;
