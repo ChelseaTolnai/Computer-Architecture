@@ -3,30 +3,11 @@
 #include <string.h>
 #include "cpu.h"
 
-#define DATA_LEN 6
-
 /**
  * Load the binary bytes from a .ls8 source file into a RAM array
  */
 void cpu_load(struct cpu *cpu, char *file)
 {
-  // char data[DATA_LEN] = {
-  //   // From print8.ls8
-  //   0b10000010, // LDI R0,8
-  //   0b00000000,
-  //   0b00001000,
-  //   0b01000111, // PRN R0
-  //   0b00000000,
-  //   0b00000001  // HLT
-  // };
-
-  // int address = 0;
-
-  // for (int i = 0; i < DATA_LEN; i++) {
-  //   cpu->ram[address++] = data[i];
-  // }
-
-  // TODO: Replace this with something less hard-coded
   FILE *fp;
   char line[128];
   int address = 0;
@@ -59,25 +40,44 @@ void alu(struct cpu *cpu, enum alu_op op, unsigned char regA, unsigned char regB
 {
   switch (op) {
     case ALU_MUL:
-      cpu->ram[regA] = cpu->ram[regA] * cpu->ram[regB];
+      cpu->reg[regA] = cpu->reg[regA] * cpu->reg[regB];
       break;
   }
 }
 
 /**
- * Read RAM inside CPU struct at given index
+ * RAM 
  */
 unsigned char cpu_ram_read(struct cpu *cpu, unsigned int index)
 {
   return cpu->ram[index];
 }
 
-/**
- * Write a value to the RAM inside CPU struct at given index
- */
 void cpu_ram_write(struct cpu *cpu, unsigned int index, unsigned char value)
 {
   cpu->ram[index] = value;
+}
+
+/**
+ * REG handler functions 
+ */
+void handle_LDI(struct cpu *cpu, unsigned int index, unsigned char value)
+{
+  cpu->reg[index] = value;
+}
+void handle_PRN(struct cpu *cpu, unsigned int index)
+{
+  printf("%d\n", cpu->reg[index]);
+}
+void handle_PUSH(struct cpu *cpu, unsigned int index)
+{
+  cpu->reg[7]--;
+  cpu_ram_write(cpu, cpu->reg[7], cpu->reg[index]);
+}
+void handle_POP(struct cpu *cpu, unsigned int index)
+{
+  cpu->reg[index] = cpu_ram_read(cpu, cpu->reg[7]);
+  cpu->reg[7]++;
 }
 
 /**
@@ -107,13 +107,19 @@ void cpu_run(struct cpu *cpu)
     switch (IR) {
       // 5. Do whatever the instruction should do according to the spec.
       case LDI:
-        cpu_ram_write(cpu, operandA, operandB);
+        handle_LDI(cpu, operandA, operandB);
         break;
       case PRN:
-        printf("%d\n", cpu_ram_read(cpu, operandA));
+        handle_PRN(cpu, operandA);
         break;
       case MUL:
         alu(cpu, ALU_MUL, operandA, operandB);
+        break;
+      case PUSH:
+        handle_PUSH(cpu, operandA);
+        break;
+      case POP:
+        handle_POP(cpu, operandA);
         break;
       case HLT:
         running = 0;
@@ -137,7 +143,7 @@ void cpu_init(struct cpu *cpu)
   // When the LS-8 is booted, the following steps occur:
 
   // * `R0`-`R6` are cleared to `0`.
-  memset(cpu->reg, 0, 8*sizeof(unsigned char));
+  memset(cpu->reg, 0, sizeof(cpu->reg));
 
   // * `R7` is set to `0xF4`.
   cpu->reg[7] = 0xF4;
@@ -146,5 +152,5 @@ void cpu_init(struct cpu *cpu)
   cpu->pc = 0;
   
   // * RAM is cleared to `0`.
-  memset(cpu->ram, 0, 256*sizeof(unsigned char));
+  memset(cpu->ram, 0, sizeof(cpu->ram));
 }
