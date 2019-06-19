@@ -42,6 +42,9 @@ void alu(struct cpu *cpu, enum alu_op op, unsigned char regA, unsigned char regB
     case ALU_MUL:
       cpu->reg[regA] = cpu->reg[regA] * cpu->reg[regB];
       break;
+    case ALU_ADD:
+      cpu->reg[regA] = cpu->reg[regA] + cpu->reg[regB];
+      break;
   }
 }
 
@@ -79,6 +82,17 @@ void handle_POP(struct cpu *cpu, unsigned int index)
   cpu->reg[index] = cpu_ram_read(cpu, cpu->reg[7]);
   cpu->reg[7]++;
 }
+void handle_CALL(struct cpu *cpu, unsigned int index)
+{
+  cpu->reg[7]--;
+  cpu_ram_write(cpu, cpu->reg[7], cpu->pc+2);
+  cpu->pc = cpu->reg[index];
+}
+void handle_RET(struct cpu *cpu)
+{
+  cpu->pc = cpu_ram_read(cpu, cpu->reg[7]);
+  cpu->reg[7]++;
+}
 
 /**
  * Run the CPU
@@ -95,13 +109,8 @@ void cpu_run(struct cpu *cpu)
     int operands = IR >> 6;
 
     // 3. Get the appropriate value(s) of the operands following this instruction
-    unsigned char operandA, operandB;
-    if (operands > 0) {
-      operandA = cpu_ram_read(cpu, cpu->pc+1);
-      if (operands > 1) {
-        operandB = cpu_ram_read(cpu, cpu->pc+2);
-      }
-    }
+    unsigned char operandA = operands > 0 ? cpu_ram_read(cpu, cpu->pc+1): 0;
+    unsigned char operandB = operands > 1 ? cpu_ram_read(cpu, cpu->pc+2): 0;
 
     // 4. switch() over it to decide on a course of action.
     switch (IR) {
@@ -121,6 +130,15 @@ void cpu_run(struct cpu *cpu)
       case POP:
         handle_POP(cpu, operandA);
         break;
+      case CALL:
+        handle_CALL(cpu, operandA);
+        break;
+      case RET:
+        handle_RET(cpu);
+        break;
+      case ADD:
+        alu(cpu, ALU_ADD, operandA, operandB);
+        break;
       case HLT:
         running = 0;
         break;
@@ -130,7 +148,12 @@ void cpu_run(struct cpu *cpu)
         break;
     }
     // 6. Move the PC to the next instruction.
-    cpu->pc += operands+1;
+    // 0bAABCDDDD where B is if alu and C if PC
+    int is_pc = (IR >> 4) & 0b0001;
+    if (is_pc != 1) {
+      cpu->pc += operands+1;
+    }
+
   }
 }
 
