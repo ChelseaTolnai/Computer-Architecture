@@ -34,21 +34,6 @@ void cpu_load(struct cpu *cpu, char *file)
 }
 
 /**
- * ALU
- */
-void alu(struct cpu *cpu, enum alu_op op, unsigned char regA, unsigned char regB)
-{
-  switch (op) {
-    case ALU_MUL:
-      cpu->reg[regA] = cpu->reg[regA] * cpu->reg[regB];
-      break;
-    case ALU_ADD:
-      cpu->reg[regA] = cpu->reg[regA] + cpu->reg[regB];
-      break;
-  }
-}
-
-/**
  * RAM 
  */
 unsigned char cpu_ram_read(struct cpu *cpu, unsigned int index)
@@ -62,36 +47,82 @@ void cpu_ram_write(struct cpu *cpu, unsigned int index, unsigned char value)
 }
 
 /**
- * REG handler functions 
+ * GEN handler functions 
  */
-void handle_LDI(struct cpu *cpu, unsigned int index, unsigned char value)
+void gen(struct cpu *cpu, unsigned int op, unsigned int index, unsigned char value)
 {
-  cpu->reg[index] = value;
+  switch (op) {
+    case HLT:
+      break;
+    case LDI:
+      cpu->reg[index] = value;
+      break;
+    case PRN:
+      printf("%d\n", cpu->reg[index]);
+      break;
+    case PUSH:
+      cpu->reg[7]--;
+      cpu_ram_write(cpu, cpu->reg[7], cpu->reg[index]);
+      break;
+    case POP:
+      cpu->reg[index] = cpu_ram_read(cpu, cpu->reg[7]);
+      cpu->reg[7]++;
+      break;
+    default:
+      fprintf(stderr, "Error - GEN Instruction Unknown {%d}\n", op);
+      exit(1);
+      break;
+  }
 }
-void handle_PRN(struct cpu *cpu, unsigned int index)
+
+/**
+ * PC handler functions 
+ */
+void pc(struct cpu *cpu, unsigned int op, unsigned int index)
 {
-  printf("%d\n", cpu->reg[index]);
+  switch (op) {
+    case CALL:
+      cpu->reg[7]--;
+      cpu_ram_write(cpu, cpu->reg[7], cpu->pc+2);
+      cpu->pc = cpu->reg[index];
+      break;
+    case RET:
+      cpu->pc = cpu_ram_read(cpu, cpu->reg[7]);
+      cpu->reg[7]++;
+      break;
+    case JMP:
+      cpu->pc = cpu->reg[index];
+      break;
+    default:
+      fprintf(stderr, "Error - PC Instruction Unknown {%d}\n", op);
+      exit(1);
+      break;
+  }
 }
-void handle_PUSH(struct cpu *cpu, unsigned int index)
+
+/**
+ * ALU
+ */
+void alu(struct cpu *cpu, unsigned int op, unsigned char regA, unsigned char regB)
 {
-  cpu->reg[7]--;
-  cpu_ram_write(cpu, cpu->reg[7], cpu->reg[index]);
-}
-void handle_POP(struct cpu *cpu, unsigned int index)
-{
-  cpu->reg[index] = cpu_ram_read(cpu, cpu->reg[7]);
-  cpu->reg[7]++;
-}
-void handle_CALL(struct cpu *cpu, unsigned int index)
-{
-  cpu->reg[7]--;
-  cpu_ram_write(cpu, cpu->reg[7], cpu->pc+2);
-  cpu->pc = cpu->reg[index];
-}
-void handle_RET(struct cpu *cpu)
-{
-  cpu->pc = cpu_ram_read(cpu, cpu->reg[7]);
-  cpu->reg[7]++;
+  switch (op) {
+    case ADD:
+      cpu->reg[regA] = cpu->reg[regA] + cpu->reg[regB];
+      break;
+    case SUB:
+      cpu->reg[regA] = cpu->reg[regA] - cpu->reg[regB];
+      break;
+    case MUL:
+      cpu->reg[regA] = cpu->reg[regA] * cpu->reg[regB];
+      break;
+    case DIV:
+      cpu->reg[regA] = cpu->reg[regA] / cpu->reg[regB];
+      break;
+    default:
+      fprintf(stderr, "Error - ALU Instruction Unknown {%d}\n", op);
+      exit(1);
+      break;
+  }
 }
 
 /**
@@ -109,51 +140,37 @@ void cpu_run(struct cpu *cpu)
     int operands = IR >> 6;
 
     // 3. Get the appropriate value(s) of the operands following this instruction
-    unsigned char operandA = operands > 0 ? cpu_ram_read(cpu, cpu->pc+1): 0;
-    unsigned char operandB = operands > 1 ? cpu_ram_read(cpu, cpu->pc+2): 0;
+    unsigned char operandA = operands > 0 ? cpu_ram_read(cpu, (cpu->pc+1) & 0xff) : 0;
+    unsigned char operandB = operands > 1 ? cpu_ram_read(cpu, (cpu->pc+2) & 0xff) : 0;
+
+    // 0bAABCDDDD where AA is operands, B is if alu, C if PC, D is instruction identifier
+    int instruction_type = (IR >> 4) & 0b0011; // 0b0000->GEN; 0b0001->PC; 0b0010->ALU
 
     // 4. switch() over it to decide on a course of action.
-    switch (IR) {
+    switch (instruction_type) {
       // 5. Do whatever the instruction should do according to the spec.
-      case LDI:
-        handle_LDI(cpu, operandA, operandB);
+      case GEN:
+        if (IR == HLT) {
+          running = 0;
+          break;
+        }
+        gen(cpu, IR, operandA, operandB);
+        cpu->pc += operands + 1;
         break;
-      case PRN:
-        handle_PRN(cpu, operandA);
+      case PC:
+        pc(cpu, IR, operandA);
         break;
-      case MUL:
-        alu(cpu, ALU_MUL, operandA, operandB);
-        break;
-      case PUSH:
-        handle_PUSH(cpu, operandA);
-        break;
-      case POP:
-        handle_POP(cpu, operandA);
-        break;
-      case CALL:
-        handle_CALL(cpu, operandA);
-        break;
-      case RET:
-        handle_RET(cpu);
-        break;
-      case ADD:
-        alu(cpu, ALU_ADD, operandA, operandB);
-        break;
-      case HLT:
-        running = 0;
-        break;
-      default:
-        printf("Error - Instruction Register Unknown at register PC index {%d}\n", cpu->pc);
-        running = 0;
+      case ALU:
+        if (IR == DIV && operandB == 0) {
+          fprintf(stderr, "Error - Cannot divide by 0\n");
+          running = 0;
+          break;
+        }
+        alu(cpu, IR, operandA, operandB);
+        cpu->pc += operands + 1;
         break;
     }
     // 6. Move the PC to the next instruction.
-    // 0bAABCDDDD where B is if alu and C if PC
-    int is_pc = (IR >> 4) & 0b0001;
-    if (is_pc != 1) {
-      cpu->pc += operands+1;
-    }
-
   }
 }
 
